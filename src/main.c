@@ -12,6 +12,9 @@
 #define SCREEN_WIDTH 16 * 30
 #define SCREEN_HEIGHT 16 * 30 + 50
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 typedef unsigned int ui;
 typedef uint8_t u8;
 
@@ -474,9 +477,10 @@ mswpr_draw (mswpr_t *mswpr)
    DrawText ("New Game", mswpr->btn_new_game.x + 5, mswpr->btn_new_game.y + 5,
              20, BLACK);
 
-   int elapsed = (int)((mswpr->has_game_ended || mswpr->has_user_won)
-                           ? mswpr->end_time
-                           : (GetTime () - mswpr->start_time - mswpr->pause_duration));
+   int elapsed
+       = (int)((mswpr->has_game_ended || mswpr->has_user_won)
+                   ? mswpr->end_time
+                   : (GetTime () - mswpr->start_time - mswpr->pause_duration));
 
    char timer_text[32];
    snprintf (timer_text, sizeof (timer_text), "Time: %ds", elapsed);
@@ -509,9 +513,10 @@ mswpr_draw (mswpr_t *mswpr)
                               {
                                  float scale = (float)mswpr->cell_size
                                                / mswpr->mine_texture.width;
-                                 DrawTextureEx (mswpr->mine_texture,
-                                                (Vector2){ (float)x, (float)y }, 0.0f,
-                                                scale, WHITE);
+                                 DrawTextureEx (
+                                     mswpr->mine_texture,
+                                     (Vector2){ (float)x, (float)y }, 0.0f,
+                                     scale, WHITE);
                               }
                            else
                               {
@@ -527,9 +532,11 @@ mswpr_draw (mswpr_t *mswpr)
                               {
                                  int number
                                      = current_cell->adjacent_mines_count;
-                                 int font_size    = 20;
-                                 Color num_colour = mswpr->colour_palette[number];
-                                 const char *num_str    = TextFormat ("%d", number);
+                                 int font_size = 20;
+                                 Color num_colour
+                                     = mswpr->colour_palette[number];
+                                 const char *num_str
+                                     = TextFormat ("%d", number);
 
                                  // Bold effect: we draw an offset text for
                                  // outline then normal text
@@ -552,19 +559,22 @@ mswpr_draw (mswpr_t *mswpr)
                               {
                                  float scale = (float)mswpr->cell_size
                                                / mswpr->flag_texture.width;
-                                 DrawTextureEx (mswpr->flag_texture,
-                                                (Vector2){ (float)x, (float)y }, 0.0f,
-                                                scale, WHITE);
+                                 DrawTextureEx (
+                                     mswpr->flag_texture,
+                                     (Vector2){ (float)x, (float)y }, 0.0f,
+                                     scale, WHITE);
                               }
                            else
                               {
                                  DrawText ("F", x + mswpr->cell_size / 3,
-                                           y + mswpr->cell_size / 4, 20, MAROON);
+                                           y + mswpr->cell_size / 4, 20,
+                                           MAROON);
                               }
                         }
                   }
 
-               DrawRectangleLines (x, y, mswpr->cell_size, mswpr->cell_size, BLACK);
+               DrawRectangleLines (x, y, mswpr->cell_size, mswpr->cell_size,
+                                   BLACK);
             }
       }
 
@@ -625,9 +635,46 @@ mswpr_run (mswpr_t *mswpr)
 }
 
 void
-mswpr_first_click_safe_zone (mswpr_t *omswpr, ui cell, ui col)
+mswpr_first_click_safe_zone (mswpr_t *mswpr, ui safe_row, ui safe_col)
 {
-   NOT_IMPL;
+   int min_row = MAX (0, safe_row - 1);
+   int max_row = MIN (mswpr->grid_rows - 1, safe_row + 1);
+   int min_col = MAX (0, safe_col - 1);
+   int max_col = MIN (mswpr->grid_columns - 1, safe_col + 1);
+
+   for (int row = min_row; row <= max_row; row++)
+      {
+         for (int col = min_col; col <= max_col; col++)
+            {
+               cell_row_t *current_cell_row
+                   = cell_grid_t_at (&mswpr->cell_grid, row);
+               cell_t *current_cell = cell_row_t_at (current_cell_row, col);
+
+               if (current_cell->is_mine)
+                  {
+                     current_cell->is_mine = false;
+                     bool placed           = false;
+                     for (int r = 0; r < mswpr->grid_rows && !placed; r++)
+                        {
+                           for (int c = 0; c < mswpr->grid_columns && !placed;
+                                c++)
+                              {
+                                 if (r < min_row || r > max_row || c < min_col
+                                     || c > max_col)
+                                    {
+                                       if (!current_cell->is_mine)
+                                          {
+                                             current_cell->is_mine = true;
+                                             placed                = true;
+                                          }
+                                    }
+                              }
+                        }
+                  }
+            }
+      }
+   
+   mswpr_calc_adj_mines (mswpr);
 }
 
 void
