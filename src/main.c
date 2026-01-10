@@ -418,7 +418,8 @@ mswpr_update (mswpr_t *mswpr)
             {
                if (IsMouseButtonPressed (MOUSE_LEFT_BUTTON))
                   {
-                     if (CheckCollisionPointRec (mouse_position, mswpr->btn_new_game))
+                     if (CheckCollisionPointRec (mouse_position,
+                                                 mswpr->btn_new_game))
                         {
                            mswpr_reset (mswpr);
                            mswpr->end_time = 0.0;
@@ -442,7 +443,8 @@ mswpr_update (mswpr_t *mswpr)
             }
       }
 
-   if (revealed_count == mswpr->grid_rows * mswpr->grid_columns - mswpr->mines_count)
+   if (revealed_count
+       == mswpr->grid_rows * mswpr->grid_columns - mswpr->mines_count)
       {
          mswpr->has_user_won = true;
       }
@@ -450,14 +452,166 @@ mswpr_update (mswpr_t *mswpr)
    if ((mswpr->has_game_ended || mswpr->has_user_won)
        && mswpr->end_time == 0.0)
       {
-         mswpr->end_time = GetTime () - mswpr->start_time - mswpr->pause_duration;
+         mswpr->end_time
+             = GetTime () - mswpr->start_time - mswpr->pause_duration;
       }
 }
 
 void
 mswpr_draw (mswpr_t *mswpr)
 {
-   NOT_IMPL;
+   int screen_width  = mswpr->grid_columns * mswpr->cell_size;
+   int screen_height = mswpr->grid_rows * mswpr->cell_size + mswpr->ui_height;
+
+   BeginDrawing ();
+   ClearBackground (RAYWHITE);
+
+   /* Draw UI elements */
+   DrawRectangleRec (mswpr->btn_new_game, LIGHTGRAY);
+   DrawRectangleLines (mswpr->btn_new_game.x, mswpr->btn_new_game.y,
+                       mswpr->btn_new_game.width, mswpr->btn_new_game.height,
+                       BLACK);
+   DrawText ("New Game", mswpr->btn_new_game.x + 5, mswpr->btn_new_game.y + 5,
+             20, BLACK);
+
+   int elapsed = (int)((mswpr->has_game_ended || mswpr->has_user_won)
+                           ? mswpr->end_time
+                           : (GetTime () - mswpr->start_time - mswpr->pause_duration));
+
+   char timer_text[32];
+   snprintf (timer_text, sizeof (timer_text), "Time: %ds", elapsed);
+   DrawText (timer_text,
+             mswpr->btn_new_game.x + mswpr->btn_new_game.width + 20,
+             mswpr->btn_new_game.y + 5, 20, BLACK);
+
+   /* Draw grid cells */
+   for (int row = 0; row < mswpr->grid_rows; row++)
+      {
+         for (int col = 0; col < mswpr->grid_columns; col++)
+            {
+               int x = col * mswpr->cell_size;
+               int y = row * mswpr->cell_size + mswpr->ui_height;
+               Rectangle cell_rect
+                   = (Rectangle){ .x      = (float)x,
+                                  .y      = (float)y,
+                                  .width  = (float)mswpr->cell_size,
+                                  .height = (float)mswpr->cell_size };
+
+               cell_row_t *current_cell_row
+                   = cell_grid_t_at (&mswpr->cell_grid, row);
+               cell_t *current_cell = cell_row_t_at (current_cell_row, col);
+
+               if (current_cell->is_revealed)
+                  {
+                     if (current_cell->is_mine)
+                        {
+                           if (mswpr->mine_texture.width > 0)
+                              {
+                                 float scale = (float)mswpr->cell_size
+                                               / mswpr->mine_texture.width;
+                                 DrawTextureEx (mswpr->mine_texture,
+                                                (Vector2){ (float)x, (float)y }, 0.0f,
+                                                scale, WHITE);
+                              }
+                           else
+                              {
+                                 DrawText ("M", x + mswpr->cell_size / 4,
+                                           y + mswpr->cell_size / 4, 20,
+                                           BLACK);
+                              }
+                        }
+                     else
+                        {
+                           DrawRectangleRec (cell_rect, LIGHTGRAY);
+                           if (current_cell->adjacent_mines_count > 0)
+                              {
+                                 int number
+                                     = current_cell->adjacent_mines_count;
+                                 int font_size    = 20;
+                                 Color num_colour = mswpr->colour_palette[number];
+                                 const char *num_str    = TextFormat ("%d", number);
+
+                                 // Bold effect: we draw an offset text for
+                                 // outline then normal text
+                                 DrawText (num_str,
+                                           x + mswpr->cell_size / 3 + 1,
+                                           y + mswpr->cell_size / 4 + 1,
+                                           font_size, num_colour);
+                                 DrawText (num_str, x + mswpr->cell_size / 3,
+                                           y + mswpr->cell_size / 4, font_size,
+                                           num_colour);
+                              }
+                        }
+                  }
+               else
+                  {
+                     DrawRectangleRec (cell_rect, GRAY);
+                     if (current_cell->has_flag)
+                        {
+                           if (mswpr->flag_texture.width > 0)
+                              {
+                                 float scale = (float)mswpr->cell_size
+                                               / mswpr->flag_texture.width;
+                                 DrawTextureEx (mswpr->flag_texture,
+                                                (Vector2){ (float)x, (float)y }, 0.0f,
+                                                scale, WHITE);
+                              }
+                           else
+                              {
+                                 DrawText ("F", x + mswpr->cell_size / 3,
+                                           y + mswpr->cell_size / 4, 20, MAROON);
+                              }
+                        }
+                  }
+
+               DrawRectangleLines (x, y, mswpr->cell_size, mswpr->cell_size, BLACK);
+            }
+      }
+
+   /* Draw overlay on grid area if game ended (without covering UI) */
+   if (mswpr->has_game_ended || mswpr->has_user_won)
+      {
+         int grid_area_y      = mswpr->ui_height;
+         int grid_area_height = screen_height - mswpr->ui_height;
+         Color overlay_color  = Fade (LIGHTGRAY, 0.8f);
+         DrawRectangle (0, grid_area_y, screen_width, grid_area_height,
+                        overlay_color);
+         const char *end_text = mswpr->has_game_ended ? "Game Over!"
+                                : mswpr->has_user_won
+                                    ? "You Win!"
+                                    : "Damn, how did you get this?";
+         int font_size        = 40;
+         int text_width       = MeasureText (end_text, font_size);
+         int text_x           = screen_width / 2 - text_width / 2;
+         int text_y = grid_area_y + grid_area_height / 2 - font_size / 2;
+         DrawText (end_text, text_x, text_y, font_size,
+                   mswpr->has_game_ended ? RED : DARKGREEN);
+      }
+
+   if (mswpr->is_reset_confirmed)
+      {
+         DrawRectangle (0, 0, screen_width, screen_height, Fade (BLACK, 0.5f));
+         DrawRectangleRec (mswpr->modal_rect, LIGHTGRAY);
+         DrawRectangleLines (mswpr->modal_rect.x, mswpr->modal_rect.y,
+                             mswpr->modal_rect.width, mswpr->modal_rect.height,
+                             BLACK);
+         DrawText ("Are you sure?", mswpr->modal_rect.x + 60,
+                   mswpr->modal_rect.y + 30, 20, BLACK);
+
+         DrawRectangleRec (mswpr->btn_yes, GREEN);
+         DrawRectangleLines (mswpr->btn_yes.x, mswpr->btn_yes.y,
+                             mswpr->btn_yes.width, mswpr->btn_yes.height,
+                             BLACK);
+         DrawText ("Yes", mswpr->btn_yes.x + 30, mswpr->btn_yes.y + 5, 20,
+                   BLACK);
+
+         DrawRectangleRec (mswpr->btn_no, RED);
+         DrawRectangleLines (mswpr->btn_no.x, mswpr->btn_no.y,
+                             mswpr->btn_no.width, mswpr->btn_no.height, BLACK);
+         DrawText ("No", mswpr->btn_no.x + 35, mswpr->btn_no.y + 5, 20, BLACK);
+      }
+
+   EndDrawing ();
 }
 
 void
@@ -471,7 +625,7 @@ mswpr_run (mswpr_t *mswpr)
 }
 
 void
-mswpr_first_click_safe_zone (mswpr_t *mswpr, ui cell, ui col)
+mswpr_first_click_safe_zone (mswpr_t *omswpr, ui cell, ui col)
 {
    NOT_IMPL;
 }
