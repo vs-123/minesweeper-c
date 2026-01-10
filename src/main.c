@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -5,9 +6,12 @@
 #include "raylib.h"
 #include "vector.h"
 
+#define NOT_IMPL assert (0 && "NOT IMPLEMENTED");
+
 #define SCREEN_WIDTH 16 * 30
 #define SCREEN_HEIGHT 16 * 30 + 50
 
+typedef unsigned int ui;
 typedef uint8_t u8;
 
 typedef struct
@@ -15,14 +19,15 @@ typedef struct
    bool is_mine;
    bool is_revealed;
    bool has_flag;
-   u8 adjacent_mines; /* won't ever exceed 9 so... u8 seems good enough */
+   u8 adjacent_mines_count; /* won't ever exceed 9 so... u8 seems good enough
+                             */
 } cell_t;
 
-DECLARE_VECTOR (cell_t, cell_vector_t)
-DECLARE_VECTOR (cell_vector_t, cell_grid_t)
+DECLARE_VECTOR (cell_t, cell_row_t)
+DECLARE_VECTOR (cell_row_t, cell_grid_t)
 
-IMPLEMENT_VECTOR (cell_t, cell_vector_t)
-IMPLEMENT_VECTOR (cell_vector_t, cell_grid_t)
+IMPLEMENT_VECTOR (cell_t, cell_row_t)
+IMPLEMENT_VECTOR (cell_row_t, cell_grid_t)
 
 typedef struct
 {
@@ -56,6 +61,27 @@ typedef struct
    Color colour_palette[9];
 } mswpr_t;
 
+mswpr_t mswpr_init (void);
+void mswpr_free (mswpr_t *mswpr);
+void mswpr_place_mines (mswpr_t *mswpr);
+void mswpr_calc_adj_mines (mswpr_t *mswpr);
+void mswpr_reset (mswpr_t *mswpr);
+void mswpr_place_mines (mswpr_t *mswpr);
+void mswpr_calc_adj_mines (mswpr_t *mswpr);
+
+int
+main (void)
+{
+   InitWindow (SCREEN_WIDTH, SCREEN_HEIGHT, "Minesweeper -- vs-123");
+
+   mswpr_t mswpr = mswpr_init ();
+   mswpr_free (&mswpr);
+
+   CloseWindow ();
+
+   return 0;
+}
+
 mswpr_t
 mswpr_init (void)
 {
@@ -67,8 +93,17 @@ mswpr_init (void)
    mswpr.mines_count  = 40;
    mswpr.ui_height    = 50;
 
+   mswpr.cell_grid = cell_grid_t_new (mswpr.grid_rows);
+   cell_grid_t_resize (&mswpr.cell_grid, mswpr.grid_rows);
+
+   for (ui i = 0; i < mswpr.grid_rows; i++)
+      {
+         *cell_grid_t_at (&mswpr.cell_grid, i)
+             = cell_row_t_new (mswpr.grid_columns);
+      }
+
    mswpr.start_time         = GetTime ();
-   mswpr.end_time         = 0.0;
+   mswpr.end_time           = 0.0;
    mswpr.pause_duration     = 0.0;
    mswpr.confirm_start_time = 0.0;
 
@@ -91,8 +126,8 @@ mswpr_init (void)
                       .width  = (float)modal_width,
                       .height = (float)modal_height };
 
-   mswpr.btn_yes = (Rectangle){ .x      = mswpr.modal_rect.x + 30,
-                                .y      = mswpr.modal_rect.y + modal_height - 50,
+   mswpr.btn_yes = (Rectangle){ .x = mswpr.modal_rect.x + 30,
+                                .y = mswpr.modal_rect.y + modal_height - 50,
                                 .width  = 100,
                                 .height = 30 };
 
@@ -104,11 +139,22 @@ mswpr_init (void)
    mswpr.mine_texture = LoadTexture ("assets/mine.png");
    mswpr.flag_texture = LoadTexture ("assets/flag.png");
 
+   mswpr.colour_palette[0] = WHITE;
+   mswpr.colour_palette[1] = (Color){ 0, 70, 241, 255 };
+   mswpr.colour_palette[2] = DARKGREEN;
+   mswpr.colour_palette[3] = RED;
+   mswpr.colour_palette[4] = DARKBLUE;
+   mswpr.colour_palette[5] = ORANGE;
+   mswpr.colour_palette[6] = (Color){ 64, 224, 208, 255 };
+   mswpr.colour_palette[7] = BLACK;
+   mswpr.colour_palette[8] = GRAY; // 8
+
    Image window_icon = LoadImage ("assets/mine.png");
    SetWindowIcon (window_icon);
    UnloadImage (window_icon);
 
    /* reset_game(); */
+   mswpr_reset (&mswpr);
 
    return mswpr;
 }
@@ -127,14 +173,43 @@ mswpr_free (mswpr_t *mswpr)
       }
 }
 
-int
-main (void)
+void
+mswpr_reset (mswpr_t *mswpr)
 {
-   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Minesweeper -- vs-123");
-   
-   mswpr_t mswpr = mswpr_init ();
-   mswpr_free(&mswpr);
+   for (ui i = 0; i < mswpr->grid_rows; i++)
+      {
+         cell_row_t_free (cell_grid_t_at (&mswpr->cell_grid, i));
+      }
+   cell_grid_t_free (&mswpr->cell_grid);
 
-   CloseWindow();
-   return 0;
+   mswpr->cell_grid = cell_grid_t_new (mswpr->grid_rows);
+   cell_grid_t_resize (&mswpr->cell_grid, mswpr->grid_rows);
+   
+   for (ui i = 0; i < mswpr->grid_rows; i++)
+      {
+         *cell_grid_t_at (&mswpr->cell_grid, i)
+             = cell_row_t_new (mswpr->grid_columns);
+      }
+
+   mswpr_place_mines (mswpr);
+   mswpr_calc_adj_mines (mswpr);
+
+   mswpr->has_game_ended = false;
+   mswpr->has_user_won   = false;
+   mswpr->start_time     = GetTime ();
+   mswpr->end_time       = 0.0;
+   mswpr->pause_duration = 0.0;
+   mswpr->is_first_click = true;
+}
+
+void
+mswpr_place_mines (mswpr_t *mswpr)
+{
+   NOT_IMPL
+}
+
+void
+mswpr_calc_adj_mines (mswpr_t *mswpr)
+{
+   NOT_IMPL
 }
