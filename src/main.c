@@ -15,7 +15,6 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-typedef unsigned int ui;
 typedef uint8_t u8;
 
 typedef struct
@@ -77,10 +76,10 @@ void mswpr_calc_adj_mines (mswpr_t *mswpr);
 void mswpr_update (mswpr_t *mswpr);
 void mswpr_draw (mswpr_t *mswpr);
 void mswpr_run (mswpr_t *mswpr);
-void mswpr_first_click_safe_zone (mswpr_t *mswpr, ui cell, ui col);
-void mswpr_reveal_cell (mswpr_t *mswpr, ui cell_row, ui cell_col,
+void mswpr_first_click_safe_zone (mswpr_t *mswpr, int cell, int col);
+void mswpr_reveal_cell (mswpr_t *mswpr, int cell_row, int cell_col,
                         bool has_game_ended);
-void mswpr_auto_reveal (mswpr_t *mswpr, ui cell_row, ui cell_col,
+void mswpr_auto_reveal (mswpr_t *mswpr, int cell_row, int cell_col,
                         bool has_game_ended);
 
 int
@@ -111,11 +110,20 @@ mswpr_init (void)
    mswpr.cell_grid = cell_grid_t_new (mswpr.grid_rows);
    cell_grid_t_resize (&mswpr.cell_grid, mswpr.grid_rows);
 
-   for (ui i = 0; i < mswpr.grid_rows; i++)
+   for (int i = 0; i < mswpr.grid_rows; i++)
       {
          cell_row_t row = cell_row_t_new (mswpr.grid_columns);
          cell_row_t_resize (&row, mswpr.grid_columns);
          *cell_grid_t_at (&mswpr.cell_grid, i) = row;
+
+         for (int j = 0; j < mswpr.grid_columns; j++)
+            {
+               cell_t *c               = cell_row_t_at (&row, j);
+               c->is_mine              = false;
+               c->is_revealed          = false;
+               c->has_flag             = false;
+               c->adjacent_mines_count = 0;
+            }
       }
 
    mswpr.start_time         = GetTime ();
@@ -192,7 +200,7 @@ mswpr_free (mswpr_t *mswpr)
 void
 mswpr_reset (mswpr_t *mswpr)
 {
-   for (ui i = 0; i < mswpr->grid_rows; i++)
+   for (int i = 0; i < mswpr->grid_rows; i++)
       {
          cell_row_t_free (cell_grid_t_at (&mswpr->cell_grid, i));
       }
@@ -201,11 +209,20 @@ mswpr_reset (mswpr_t *mswpr)
    mswpr->cell_grid = cell_grid_t_new (mswpr->grid_rows);
    cell_grid_t_resize (&mswpr->cell_grid, mswpr->grid_rows);
 
-   for (ui i = 0; i < mswpr->grid_rows; i++)
+   for (int i = 0; i < mswpr->grid_rows; i++)
       {
          cell_row_t row = cell_row_t_new (mswpr->grid_columns);
          cell_row_t_resize (&row, mswpr->grid_columns);
          *cell_grid_t_at (&mswpr->cell_grid, i) = row;
+         
+         for (int j = 0; j < mswpr->grid_columns; j++)
+            {
+               cell_t *c               = cell_row_t_at (&row, j);
+               c->is_mine              = false;
+               c->is_revealed          = false;
+               c->has_flag             = false;
+               c->adjacent_mines_count = 0;
+            }
       }
 
    mswpr_place_mines (mswpr);
@@ -222,7 +239,7 @@ mswpr_reset (mswpr_t *mswpr)
 void
 mswpr_place_mines (mswpr_t *mswpr)
 {
-   ui mines_placed = 0;
+   int mines_placed = 0;
 
    while (mines_placed < mswpr->mines_count)
       {
@@ -244,9 +261,9 @@ mswpr_place_mines (mswpr_t *mswpr)
 void
 mswpr_calc_adj_mines (mswpr_t *mswpr)
 {
-   for (ui row = 0; row < mswpr->grid_rows; row++)
+   for (int row = 0; row < mswpr->grid_rows; row++)
       {
-         for (ui col = 0; col < mswpr->grid_columns; col++)
+         for (int col = 0; col < mswpr->grid_columns; col++)
             {
                cell_row_t *current_cell_row
                    = cell_grid_t_at (&mswpr->cell_grid, row);
@@ -257,7 +274,7 @@ mswpr_calc_adj_mines (mswpr_t *mswpr)
                      continue;
                   }
 
-               ui count = 0;
+               int count = 0;
 
                for (int i = -1; i <= 1; i++)
                   {
@@ -270,7 +287,11 @@ mswpr_calc_adj_mines (mswpr_t *mswpr)
                                && new_col >= 0
                                && new_col < mswpr->grid_columns)
                               {
-                                 if (current_cell->is_mine)
+                                 cell_row_t *neighbour_row = cell_grid_t_at (
+                                     &mswpr->cell_grid, new_row);
+                                 cell_t *neighbour_cell
+                                     = cell_row_t_at (neighbour_row, new_col);
+                                 if (neighbour_cell->is_mine)
                                     {
                                        count++;
                                     }
@@ -431,10 +452,10 @@ mswpr_update (mswpr_t *mswpr)
             }
       }
 
-   ui revealed_count = 0;
-   for (ui row = 0; row < mswpr->grid_rows; row++)
+   int revealed_count = 0;
+   for (int row = 0; row < mswpr->grid_rows; row++)
       {
-         for (ui col = 0; col < mswpr->grid_columns; col++)
+         for (int col = 0; col < mswpr->grid_columns; col++)
             {
                cell_row_t *current_cell_row
                    = cell_grid_t_at (&mswpr->cell_grid, row);
@@ -469,7 +490,7 @@ mswpr_draw (mswpr_t *mswpr)
    BeginDrawing ();
    ClearBackground (RAYWHITE);
 
-   /* Draw UI elements */
+   /* Draw INT elements */
    DrawRectangleRec (mswpr->btn_new_game, LIGHTGRAY);
    DrawRectangleLines (mswpr->btn_new_game.x, mswpr->btn_new_game.y,
                        mswpr->btn_new_game.width, mswpr->btn_new_game.height,
@@ -635,7 +656,7 @@ mswpr_run (mswpr_t *mswpr)
 }
 
 void
-mswpr_first_click_safe_zone (mswpr_t *mswpr, ui safe_row, ui safe_col)
+mswpr_first_click_safe_zone (mswpr_t *mswpr, int safe_row, int safe_col)
 {
    int min_row = MAX (0, safe_row - 1);
    int max_row = MIN (mswpr->grid_rows - 1, safe_row + 1);
@@ -662,10 +683,16 @@ mswpr_first_click_safe_zone (mswpr_t *mswpr, ui safe_row, ui safe_col)
                                  if (r < min_row || r > max_row || c < min_col
                                      || c > max_col)
                                     {
-                                       if (!current_cell->is_mine)
+                                       cell_row_t *target_row_ptr
+                                           = cell_grid_t_at (&mswpr->cell_grid,
+                                                             r);
+                                       cell_t *target_cell
+                                           = cell_row_t_at (target_row_ptr, c);
+
+                                       if (!target_cell->is_mine)
                                           {
-                                             current_cell->is_mine = true;
-                                             placed                = true;
+                                             target_cell->is_mine = true;
+                                             placed               = true;
                                           }
                                     }
                               }
@@ -673,19 +700,51 @@ mswpr_first_click_safe_zone (mswpr_t *mswpr, ui safe_row, ui safe_col)
                   }
             }
       }
-   
+
    mswpr_calc_adj_mines (mswpr);
 }
 
 void
-mswpr_reveal_cell (mswpr_t *mswpr, ui cell_row, ui cell_col,
-                   bool has_game_ended)
+mswpr_reveal_cell (mswpr_t *mswpr, int row, int col, bool game_over)
 {
-   NOT_IMPL;
+   if (row < 0 || row >= mswpr->grid_rows || col < 0
+       || col >= mswpr->grid_columns)
+      {
+         return;
+      }
+
+   cell_row_t *current_cell_row = cell_grid_t_at (&mswpr->cell_grid, row);
+   cell_t *current_cell         = cell_row_t_at (current_cell_row, col);
+
+   if (current_cell->is_revealed || current_cell->has_flag)
+      {
+         return;
+      }
+   current_cell->is_revealed = true;
+   if (current_cell->is_mine)
+      {
+         mswpr->has_game_ended = true;
+         return;
+      }
+   if (current_cell->adjacent_mines_count > 0)
+      {
+         return;
+      }
+   for (int i = -1; i <= 1; i++)
+      {
+         for (int j = -1; j <= 1; j++)
+            {
+               if (i != 0 || j != 0)
+                  {
+                     mswpr_reveal_cell (mswpr, row + i, col + j,
+                                        mswpr->has_game_ended);
+                  }
+            }
+      }
 }
 
 void
-mswpr_auto_reveal (mswpr_t *mswpr, ui cell_row, ui cell_col,
+mswpr_auto_reveal (mswpr_t *mswpr, int cell_row, int cell_col,
                    bool has_game_ended)
 {
    NOT_IMPL;
