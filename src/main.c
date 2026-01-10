@@ -69,6 +69,8 @@ void mswpr_calc_adj_mines (mswpr_t *mswpr);
 void mswpr_reset (mswpr_t *mswpr);
 void mswpr_place_mines (mswpr_t *mswpr);
 void mswpr_calc_adj_mines (mswpr_t *mswpr);
+void mswpr_update (mswpr_t *mswpr);
+void mswpr_draw (mswpr_t *mswpr);
 void mswpr_run (mswpr_t *mswpr);
 
 int
@@ -246,31 +248,49 @@ mswpr_calc_adj_mines (mswpr_t *mswpr)
                   }
 
                ui count = 0;
-               
+
                for (int i = -1; i <= 1; i++)
                   {
                      for (int j = -1; j <= 1; j++)
                         {
                            int new_row = row + i;
                            int new_col = col + j;
-                           
+
                            if (new_row >= 0 && new_row < mswpr->grid_rows
-                               && new_col >= 0 && new_col < mswpr->grid_columns)
+                               && new_col >= 0
+                               && new_col < mswpr->grid_columns)
                               {
-                                 if (current_cell->is_mine) {
-                                    count++;
-                                 }
+                                 if (current_cell->is_mine)
+                                    {
+                                       count++;
+                                    }
                               }
                         }
                   }
-               
+
                current_cell->adjacent_mines_count = count;
             }
       }
 }
 
 void
+mswpr_update (mswpr_t *mswpr)
+{
+   NOT_IMPL;
+}
+
+void
+mswpr_draw (mswpr_t *mswpr)
+{
+   NOT_IMPL;
+}
+
+void
 mswpr_run (mswpr_t *mswpr)
 {
-   NOT_IMPL
+   while (!WindowShouldClose ())
+      {
+         mswpr_update (mswpr);
+         mswpr_draw (mswpr);
+      }
 }
