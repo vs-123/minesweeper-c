@@ -214,7 +214,7 @@ mswpr_reset (mswpr_t *mswpr)
          cell_row_t row = cell_row_t_new (mswpr->grid_columns);
          cell_row_t_resize (&row, mswpr->grid_columns);
          *cell_grid_t_at (&mswpr->cell_grid, i) = row;
-         
+
          for (int j = 0; j < mswpr->grid_columns; j++)
             {
                cell_t *c               = cell_row_t_at (&row, j);
@@ -744,8 +744,53 @@ mswpr_reveal_cell (mswpr_t *mswpr, int row, int col, bool game_over)
 }
 
 void
-mswpr_auto_reveal (mswpr_t *mswpr, int cell_row, int cell_col,
+mswpr_auto_reveal (mswpr_t *mswpr, int row, int col,
                    bool has_game_ended)
 {
-   NOT_IMPL;
+   cell_row_t *current_cell_row = cell_grid_t_at (&mswpr->cell_grid, row);
+   cell_t *current_cell         = cell_row_t_at (current_cell_row, col);
+
+   if (!current_cell->is_revealed || current_cell->is_mine) {
+      return;
+   }
+   int num_flagged = 0;
+   for (int i = -1; i <= 1; i++)
+      {
+         for (int j = -1; j <= 1; j++)
+            {
+               int new_row = row + i;
+               int new_col = col + j;
+               cell_row_t *new_cell_row = cell_grid_t_at (&mswpr->cell_grid, new_row);
+	       cell_t *new_cell         = cell_row_t_at (current_cell_row, new_col);
+			 
+               if (new_row >= 0 && new_row < mswpr->grid_rows && new_col >= 0
+                   && new_col < mswpr->grid_columns)
+                  {
+                     if (new_cell->has_flag)
+                        num_flagged++;
+                  }
+            }
+      }
+   if (num_flagged == current_cell->adjacent_mines_count)
+      {
+         for (int i = -1; i <= 1; i++)
+            {
+               for (int j = -1; j <= 1; j++)
+                  {
+                     int new_row = row + i;
+                     int new_col = col + j;
+                     if (new_row >= 0 && new_row < mswpr->grid_rows && new_col >= 0
+                         && new_col < mswpr->grid_columns)
+                        {
+                           cell_row_t *new_cell_row = cell_grid_t_at (&mswpr->cell_grid, new_row);
+			   cell_t *new_cell         = cell_row_t_at (current_cell_row, new_col);
+			   
+                           if (!new_cell->has_flag
+                               && !new_cell->is_revealed) {
+                              mswpr_reveal_cell (mswpr, new_row, new_col, mswpr->has_game_ended);
+                           }
+                        }
+                  }
+            }
+      }
 }
