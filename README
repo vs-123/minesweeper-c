@@ -1,0 +1,13 @@
+~=~=~=~=~=~=~=~=~
+|| MINESWEEPER ||
+~=~=~=~=~=~=~=~=~
+
+   This a C port of my original C++ Minesweeper project @ https://github.com/vs-123/minesweeper
+
+~=~=~=~=~=~=~
+|| LICENSE ||
+~=~=~=~=~=~=~
+
+   This project is licensed under GNU Affero General Public License Version 3.0 or Later.
+      NO WARRANTY PROVIDED!
+   See LICENSE file for full terms or visit https://www.gnu.org/licenses/agpl-3.0.html
