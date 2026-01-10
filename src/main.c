@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "raylib.h"
 #include "vector.h"
@@ -68,15 +69,17 @@ void mswpr_calc_adj_mines (mswpr_t *mswpr);
 void mswpr_reset (mswpr_t *mswpr);
 void mswpr_place_mines (mswpr_t *mswpr);
 void mswpr_calc_adj_mines (mswpr_t *mswpr);
+void mswpr_run (mswpr_t *mswpr);
 
 int
 main (void)
 {
    InitWindow (SCREEN_WIDTH, SCREEN_HEIGHT, "Minesweeper -- vs-123");
-
    mswpr_t mswpr = mswpr_init ();
-   mswpr_free (&mswpr);
 
+   mswpr_run (&mswpr);
+
+   mswpr_free (&mswpr);
    CloseWindow ();
 
    return 0;
@@ -98,8 +101,9 @@ mswpr_init (void)
 
    for (ui i = 0; i < mswpr.grid_rows; i++)
       {
-         *cell_grid_t_at (&mswpr.cell_grid, i)
-             = cell_row_t_new (mswpr.grid_columns);
+         cell_row_t row = cell_row_t_new (mswpr.grid_columns);
+         cell_row_t_resize (&row, mswpr.grid_columns);
+         *cell_grid_t_at (&mswpr.cell_grid, i) = row;
       }
 
    mswpr.start_time         = GetTime ();
@@ -184,11 +188,12 @@ mswpr_reset (mswpr_t *mswpr)
 
    mswpr->cell_grid = cell_grid_t_new (mswpr->grid_rows);
    cell_grid_t_resize (&mswpr->cell_grid, mswpr->grid_rows);
-   
+
    for (ui i = 0; i < mswpr->grid_rows; i++)
       {
-         *cell_grid_t_at (&mswpr->cell_grid, i)
-             = cell_row_t_new (mswpr->grid_columns);
+         cell_row_t row = cell_row_t_new (mswpr->grid_columns);
+         cell_row_t_resize (&row, mswpr->grid_columns);
+         *cell_grid_t_at (&mswpr->cell_grid, i) = row;
       }
 
    mswpr_place_mines (mswpr);
@@ -205,11 +210,67 @@ mswpr_reset (mswpr_t *mswpr)
 void
 mswpr_place_mines (mswpr_t *mswpr)
 {
-   NOT_IMPL
+   ui mines_placed = 0;
+
+   while (mines_placed < mswpr->mines_count)
+      {
+         int row = rand () % mswpr->grid_rows;
+         int col = rand () % mswpr->grid_columns;
+
+         cell_row_t *current_cell_row
+             = cell_grid_t_at (&mswpr->cell_grid, row);
+         cell_t *current_cell = cell_row_t_at (current_cell_row, col);
+
+         if (!current_cell->is_mine)
+            {
+               current_cell->is_mine = true;
+               mines_placed++;
+            }
+      }
 }
 
 void
 mswpr_calc_adj_mines (mswpr_t *mswpr)
+{
+   for (ui row = 0; row < mswpr->grid_rows; row++)
+      {
+         for (ui col = 0; col < mswpr->grid_columns; col++)
+            {
+               cell_row_t *current_cell_row
+                   = cell_grid_t_at (&mswpr->cell_grid, row);
+               cell_t *current_cell = cell_row_t_at (current_cell_row, col);
+
+               if (current_cell->is_mine)
+                  {
+                     continue;
+                  }
+
+               ui count = 0;
+               
+               for (int i = -1; i <= 1; i++)
+                  {
+                     for (int j = -1; j <= 1; j++)
+                        {
+                           int new_row = row + i;
+                           int new_col = col + j;
+                           
+                           if (new_row >= 0 && new_row < mswpr->grid_rows
+                               && new_col >= 0 && new_col < mswpr->grid_columns)
+                              {
+                                 if (current_cell->is_mine) {
+                                    count++;
+                                 }
+                              }
+                        }
+                  }
+               
+               current_cell->adjacent_mines_count = count;
+            }
+      }
+}
+
+void
+mswpr_run (mswpr_t *mswpr)
 {
    NOT_IMPL
 }
