@@ -62,6 +62,8 @@ typedef struct
    Color colour_palette[9];
 } mswpr_t;
 
+/* DECLARATIONS */
+
 mswpr_t mswpr_init (void);
 void mswpr_free (mswpr_t *mswpr);
 void mswpr_place_mines (mswpr_t *mswpr);
@@ -72,6 +74,11 @@ void mswpr_calc_adj_mines (mswpr_t *mswpr);
 void mswpr_update (mswpr_t *mswpr);
 void mswpr_draw (mswpr_t *mswpr);
 void mswpr_run (mswpr_t *mswpr);
+void mswpr_first_click_safe_zone (mswpr_t *mswpr, ui cell, ui col);
+void mswpr_reveal_cell (mswpr_t *mswpr, ui cell_row, ui cell_col,
+                        bool has_game_ended);
+void mswpr_auto_reveal (mswpr_t *mswpr, ui cell_row, ui cell_col,
+                        bool has_game_ended);
 
 int
 main (void)
@@ -276,7 +283,175 @@ mswpr_calc_adj_mines (mswpr_t *mswpr)
 void
 mswpr_update (mswpr_t *mswpr)
 {
-   NOT_IMPL;
+   Vector2 mouse_position = GetMousePosition ();
+
+   if (mswpr->is_reset_confirmed)
+      {
+         if (IsMouseButtonPressed (MOUSE_LEFT_BUTTON))
+            {
+               if (CheckCollisionPointRec (mouse_position, mswpr->btn_yes))
+                  {
+                     mswpr_reset (mswpr);
+                     mswpr->end_time           = 0.0;
+                     mswpr->is_reset_confirmed = false;
+                  }
+               else if (CheckCollisionPointRec (mouse_position, mswpr->btn_no))
+                  {
+                     mswpr->pause_duration
+                         += GetTime () - mswpr->confirm_start_time;
+                     mswpr->is_reset_confirmed = false;
+                  }
+            }
+      }
+   else
+      {
+         if (!mswpr->has_game_ended && !mswpr->has_user_won)
+            {
+               // LMB (clear cell)
+               if (IsMouseButtonPressed (MOUSE_LEFT_BUTTON))
+                  {
+                     if (CheckCollisionPointRec (mouse_position,
+                                                 mswpr->btn_new_game))
+                        {
+                           mswpr->is_reset_confirmed = true;
+                           mswpr->confirm_start_time = GetTime ();
+                        }
+                     else
+                        {
+                           if (mouse_position.y > mswpr->ui_height)
+                              {
+                                 int grid_x = mouse_position.x;
+                                 int grid_y
+                                     = mouse_position.y - mswpr->ui_height;
+
+                                 int cell_col = grid_x / mswpr->cell_size;
+                                 int cell_row = grid_y / mswpr->cell_size;
+
+                                 if (cell_row >= 0
+                                     && cell_row < mswpr->grid_rows
+                                     && cell_col >= 0
+                                     && cell_col < mswpr->grid_columns)
+                                    {
+                                       if (mswpr->is_first_click)
+                                          {
+                                             mswpr_first_click_safe_zone (
+                                                 mswpr, cell_row, cell_col);
+                                             mswpr->is_first_click = false;
+                                          }
+
+                                       cell_row_t *current_cell_row
+                                           = cell_grid_t_at (&mswpr->cell_grid,
+                                                             cell_row);
+                                       cell_t *current_cell = cell_row_t_at (
+                                           current_cell_row, cell_col);
+
+                                       if (!current_cell->has_flag)
+                                          {
+                                             mswpr_reveal_cell (
+                                                 mswpr, cell_row, cell_col,
+                                                 mswpr->has_game_ended);
+                                          }
+                                    }
+                              }
+                        }
+                  }
+
+               // RMB (flag)
+               if (IsMouseButtonPressed (MOUSE_RIGHT_BUTTON))
+                  {
+                     if (mouse_position.y > mswpr->ui_height)
+                        {
+                           int grid_x   = mouse_position.x;
+                           int grid_y   = mouse_position.y - mswpr->ui_height;
+                           int cell_col = grid_x / mswpr->cell_size;
+                           int cell_row = grid_y / mswpr->cell_size;
+                           if (cell_row >= 0 && cell_row < mswpr->grid_rows
+                               && cell_col >= 0
+                               && cell_col < mswpr->grid_columns)
+                              {
+                                 cell_row_t *current_cell_row
+                                     = cell_grid_t_at (&mswpr->cell_grid,
+                                                       cell_row);
+                                 cell_t *current_cell = cell_row_t_at (
+                                     current_cell_row, cell_col);
+
+                                 if (!current_cell->is_revealed)
+                                    {
+                                       current_cell->has_flag
+                                           = !current_cell->has_flag;
+                                    }
+                              }
+                        }
+                  }
+
+               // MMB (auto reveal)
+               if (IsMouseButtonPressed (MOUSE_MIDDLE_BUTTON))
+                  {
+                     if (mouse_position.y > mswpr->ui_height)
+                        {
+                           int grid_x = mouse_position.x;
+                           int grid_y = mouse_position.y - mswpr->ui_height;
+
+                           int cell_col = grid_x / mswpr->cell_size;
+                           int cell_row = grid_y / mswpr->cell_size;
+
+                           if (cell_row >= 0 && cell_row < mswpr->grid_rows
+                               && cell_col >= 0
+                               && cell_col < mswpr->grid_columns)
+                              {
+                                 cell_row_t *current_cell_row
+                                     = cell_grid_t_at (&mswpr->cell_grid,
+                                                       cell_row);
+                                 cell_t *current_cell = cell_row_t_at (
+                                     current_cell_row, cell_col);
+
+                                 if (current_cell->is_revealed
+                                     && current_cell->adjacent_mines_count > 0)
+                                    mswpr_auto_reveal (mswpr, cell_row,
+                                                       cell_col,
+                                                       mswpr->has_game_ended);
+                              }
+                        }
+                  }
+            }
+         else
+            {
+               if (IsMouseButtonPressed (MOUSE_LEFT_BUTTON))
+                  {
+                     if (CheckCollisionPointRec (mouse_position, mswpr->btn_new_game))
+                        {
+                           mswpr_reset (mswpr);
+                           mswpr->end_time = 0.0;
+                        }
+                  }
+            }
+      }
+
+   ui revealed_count = 0;
+   for (ui row = 0; row < mswpr->grid_rows; row++)
+      {
+         for (ui col = 0; col < mswpr->grid_columns; col++)
+            {
+               cell_row_t *current_cell_row
+                   = cell_grid_t_at (&mswpr->cell_grid, row);
+               cell_t *current_cell = cell_row_t_at (current_cell_row, col);
+               if (current_cell->is_revealed)
+                  {
+                     revealed_count++;
+                  }
+            }
+      }
+
+   if (revealed_count == mswpr->grid_rows * mswpr->grid_columns - mswpr->mines_count)
+      {
+         mswpr->has_user_won = true;
+      }
+
+   if ((mswpr->has_game_ended || mswpr->has_user_won)
+       && mswpr->end_time == 0.0)
+      {
+         mswpr->end_time = GetTime () - mswpr->start_time - mswpr->pause_duration;
+      }
 }
 
 void
@@ -293,4 +468,24 @@ mswpr_run (mswpr_t *mswpr)
          mswpr_update (mswpr);
          mswpr_draw (mswpr);
       }
+}
+
+void
+mswpr_first_click_safe_zone (mswpr_t *mswpr, ui cell, ui col)
+{
+   NOT_IMPL;
+}
+
+void
+mswpr_reveal_cell (mswpr_t *mswpr, ui cell_row, ui cell_col,
+                   bool has_game_ended)
+{
+   NOT_IMPL;
+}
+
+void
+mswpr_auto_reveal (mswpr_t *mswpr, ui cell_row, ui cell_col,
+                   bool has_game_ended)
+{
+   NOT_IMPL;
 }
