@@ -61,10 +61,11 @@ typedef struct
 
 mswpr_t mswpr_init (void);
 void mswpr_free (mswpr_t *mswpr);
-void mswpr_calc_adj_mines (mswpr_t *mswpr);
+
 void mswpr_reset (mswpr_t *mswpr);
-void mswpr_place_mines (mswpr_t *mswpr);
+
 void mswpr_calc_adj_mines (mswpr_t *mswpr);
+void mswpr_place_mines (mswpr_t *mswpr);
 
 void mswpr_update (mswpr_t *mswpr);
 
