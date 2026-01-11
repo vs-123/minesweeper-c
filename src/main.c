@@ -65,9 +65,16 @@ void mswpr_calc_adj_mines (mswpr_t *mswpr);
 void mswpr_reset (mswpr_t *mswpr);
 void mswpr_place_mines (mswpr_t *mswpr);
 void mswpr_calc_adj_mines (mswpr_t *mswpr);
+
 void mswpr_update (mswpr_t *mswpr);
+
+void mswpr_draw_end_screen (mswpr_t *mswpr);
+void mswpr_draw_reset_modal (mswpr_t *mswpr);
+void mswpr_draw_ui (mswpr_t *mswpr);
 void mswpr_draw (mswpr_t *mswpr);
+
 void mswpr_run (mswpr_t *mswpr);
+
 void mswpr_first_click_safe_zone (mswpr_t *mswpr, int cell, int col);
 void mswpr_reveal_cell (mswpr_t *mswpr, int cell_row, int cell_col);
 void mswpr_auto_reveal (mswpr_t *mswpr, int cell_row, int cell_col);
@@ -76,9 +83,7 @@ int
 main (void)
 {
    mswpr_t mswpr = mswpr_init ();
-
    mswpr_run (&mswpr);
-
    mswpr_free (&mswpr);
 
    return 0;
@@ -383,162 +388,195 @@ mswpr_update (mswpr_t *mswpr)
 }
 
 void
+mswpr_draw_cell (mswpr_t *mswpr, int row, int col)
+{
+   int x = col * mswpr->cell_size;
+   int y = row * mswpr->cell_size + mswpr->ui_height;
+
+   Rectangle rect = { (float)x, (float)y, (float)mswpr->cell_size,
+                      (float)mswpr->cell_size };
+   cell_t cell    = mswpr->cell_grid[row * mswpr->grid_columns + col];
+
+   if (cell.is_revealed)
+      {
+         DrawRectangleRec (rect, LIGHTGRAY);
+      }
+   else
+      {
+         DrawRectangleRec (rect, GRAY);
+      }
+
+   if (cell.is_revealed)
+      {
+         if (cell.is_mine)
+            {
+               if (mswpr->mine_texture.id > 0)
+                  {
+                     float scale
+                         = (float)mswpr->cell_size / mswpr->mine_texture.width;
+                     DrawTextureEx (mswpr->mine_texture,
+                                    (Vector2){ (float)x, (float)y }, 0.0f,
+                                    scale, WHITE);
+                  }
+               else
+                  {
+                     DrawText ("M", x + mswpr->cell_size / 4,
+                               y + mswpr->cell_size / 4, 20, BLACK);
+                  }
+            }
+         else if (cell.adjacent_mines_count > 0)
+            {
+               int num          = cell.adjacent_mines_count;
+               const char *text = TextFormat ("%d", num);
+               int centerX
+                   = x + (mswpr->cell_size - MeasureText (text, 20)) / 2;
+               int centerY = y + (mswpr->cell_size - 20) / 2;
+               DrawText (text, centerX, centerY, 20,
+                         mswpr->colour_palette[num]);
+            }
+      }
+   else if (cell.has_flag)
+      {
+         if (mswpr->flag_texture.id > 0)
+            {
+               float scale
+                   = (float)mswpr->cell_size / mswpr->flag_texture.width;
+               DrawTextureEx (mswpr->flag_texture,
+                              (Vector2){ (float)x, (float)y }, 0.0f, scale,
+                              WHITE);
+            }
+         else
+            {
+               DrawText ("F", x + mswpr->cell_size / 3,
+                         y + mswpr->cell_size / 4, 20, MAROON);
+            }
+      }
+
+   DrawRectangleLinesEx (rect, 1, BLACK);
+}
+
+void
+mswpr_draw_ui (mswpr_t *mswpr)
+{
+   DrawRectangleRec (mswpr->btn_new_game, LIGHTGRAY);
+   DrawRectangleLinesEx (mswpr->btn_new_game, 2, GRAY);
+
+   const char *btn_text = "New Game";
+   int btn_font_size    = 18;
+   int btn_text_w       = MeasureText (btn_text, btn_font_size);
+
+   DrawText (btn_text,
+             mswpr->btn_new_game.x + (mswpr->btn_new_game.width / 2)
+                 - (btn_text_w / 2),
+             mswpr->btn_new_game.y + (mswpr->btn_new_game.height / 2)
+                 - (btn_font_size / 2),
+             btn_font_size, BLACK);
+
+   int flags_placed = 0;
+   int total_cells  = mswpr->grid_rows * mswpr->grid_columns;
+   for (int i = 0; i < total_cells; i++)
+      {
+         if (mswpr->cell_grid[i].has_flag)
+            flags_placed++;
+      }
+   int mines_rem = mswpr->mines_count - flags_placed;
+
+   float elapsed
+       = (mswpr->has_game_ended || mswpr->has_user_won)
+             ? mswpr->end_time
+             : (GetTime () - mswpr->start_time - mswpr->pause_duration);
+
+   const char *timer_txt = TextFormat ("TIME: %ds", (int)elapsed);
+   const char *mine_txt  = TextFormat ("MINES: %d", mines_rem);
+
+   int stats_x = mswpr->btn_new_game.x + mswpr->btn_new_game.width + 20;
+   int stats_y = mswpr->btn_new_game.y + 7;
+
+   DrawText (timer_txt, stats_x, stats_y, 20,
+             (int)elapsed > 999 ? RED : BLACK);
+   DrawText (mine_txt, stats_x + 130, stats_y, 20, MAROON);
+
+   DrawLine (0, mswpr->ui_height - 1, mswpr->screen_width,
+             mswpr->ui_height - 1, DARKGRAY);
+}
+
+void
 mswpr_draw (mswpr_t *mswpr)
 {
    BeginDrawing ();
    ClearBackground (RAYWHITE);
 
-   /* Draw INT elements */
-   DrawRectangleRec (mswpr->btn_new_game, LIGHTGRAY);
-   DrawRectangleLines (mswpr->btn_new_game.x, mswpr->btn_new_game.y,
-                       mswpr->btn_new_game.width, mswpr->btn_new_game.height,
-                       BLACK);
-   DrawText ("New Game", mswpr->btn_new_game.x + 5, mswpr->btn_new_game.y + 5,
-             20, BLACK);
+   mswpr_draw_ui (mswpr);
 
-   int elapsed
-       = (int)((mswpr->has_game_ended || mswpr->has_user_won)
-                   ? mswpr->end_time
-                   : (GetTime () - mswpr->start_time - mswpr->pause_duration));
-
-   char timer_text[32];
-   snprintf (timer_text, sizeof (timer_text), "Time: %ds", elapsed);
-   DrawText (timer_text,
-             mswpr->btn_new_game.x + mswpr->btn_new_game.width + 20,
-             mswpr->btn_new_game.y + 5, 20, BLACK);
-
-   /* Draw grid cells */
    for (int row = 0; row < mswpr->grid_rows; row++)
       {
          for (int col = 0; col < mswpr->grid_columns; col++)
             {
-               int x = col * mswpr->cell_size;
-               int y = row * mswpr->cell_size + mswpr->ui_height;
-               Rectangle cell_rect
-                   = (Rectangle){ .x      = (float)x,
-                                  .y      = (float)y,
-                                  .width  = (float)mswpr->cell_size,
-                                  .height = (float)mswpr->cell_size };
-
-               cell_t *current_cell
-                   = &mswpr->cell_grid[row * mswpr->grid_columns + col];
-
-               if (current_cell->is_revealed)
-                  {
-                     if (current_cell->is_mine)
-                        {
-                           if (mswpr->mine_texture.width > 0)
-                              {
-                                 float scale = (float)mswpr->cell_size
-                                               / mswpr->mine_texture.width;
-                                 DrawTextureEx (
-                                     mswpr->mine_texture,
-                                     (Vector2){ (float)x, (float)y }, 0.0f,
-                                     scale, WHITE);
-                              }
-                           else
-                              {
-                                 DrawText ("M", x + mswpr->cell_size / 4,
-                                           y + mswpr->cell_size / 4, 20,
-                                           BLACK);
-                              }
-                        }
-                     else
-                        {
-                           DrawRectangleRec (cell_rect, LIGHTGRAY);
-                           if (current_cell->adjacent_mines_count > 0)
-                              {
-                                 int number
-                                     = current_cell->adjacent_mines_count;
-                                 int font_size = 20;
-                                 Color num_colour
-                                     = mswpr->colour_palette[number];
-                                 const char *num_str
-                                     = TextFormat ("%d", number);
-
-                                 DrawText (num_str,
-                                           x + mswpr->cell_size / 3 + 1,
-                                           y + mswpr->cell_size / 4 + 1,
-                                           font_size, num_colour);
-                                 DrawText (num_str, x + mswpr->cell_size / 3,
-                                           y + mswpr->cell_size / 4, font_size,
-                                           num_colour);
-                              }
-                        }
-                  }
-               else
-                  {
-                     DrawRectangleRec (cell_rect, GRAY);
-                     if (current_cell->has_flag)
-                        {
-                           if (mswpr->flag_texture.width > 0)
-                              {
-                                 float scale = (float)mswpr->cell_size
-                                               / mswpr->flag_texture.width;
-                                 DrawTextureEx (
-                                     mswpr->flag_texture,
-                                     (Vector2){ (float)x, (float)y }, 0.0f,
-                                     scale, WHITE);
-                              }
-                           else
-                              {
-                                 DrawText ("F", x + mswpr->cell_size / 3,
-                                           y + mswpr->cell_size / 4, 20,
-                                           MAROON);
-                              }
-                        }
-                  }
-
-               DrawRectangleLines (x, y, mswpr->cell_size, mswpr->cell_size,
-                                   BLACK);
+               mswpr_draw_cell (mswpr, row, col);
             }
       }
 
-   /* Draw overlay on grid area if game ended (without covering UI) */
    if (mswpr->has_game_ended || mswpr->has_user_won)
       {
-         int grid_area_y      = mswpr->ui_height;
-         int grid_area_height = mswpr->screen_height - mswpr->ui_height;
-         Color overlay_color  = Fade (LIGHTGRAY, 0.8f);
-         DrawRectangle (0, grid_area_y, mswpr->screen_width, grid_area_height,
-                        overlay_color);
-         const char *end_text = mswpr->has_game_ended ? "Game Over!"
-                                : mswpr->has_user_won
-                                    ? "You Win!"
-                                    : "Damn, how did you get this?";
-         int font_size        = 40;
-         int text_width       = MeasureText (end_text, font_size);
-         int text_x           = mswpr->screen_width / 2 - text_width / 2;
-         int text_y = grid_area_y + grid_area_height / 2 - font_size / 2;
-         DrawText (end_text, text_x, text_y, font_size,
-                   mswpr->has_game_ended ? RED : DARKGREEN);
+         mswpr_draw_end_screen (mswpr);
       }
 
    if (mswpr->is_reset_confirmed)
       {
-         DrawRectangle (0, 0, mswpr->screen_width, mswpr->screen_height,
-                        Fade (BLACK, 0.5f));
-         DrawRectangleRec (mswpr->modal_rect, LIGHTGRAY);
-         DrawRectangleLines (mswpr->modal_rect.x, mswpr->modal_rect.y,
-                             mswpr->modal_rect.width, mswpr->modal_rect.height,
-                             BLACK);
-         DrawText ("Are you sure?", mswpr->modal_rect.x + 60,
-                   mswpr->modal_rect.y + 30, 20, BLACK);
-
-         DrawRectangleRec (mswpr->btn_yes, GREEN);
-         DrawRectangleLines (mswpr->btn_yes.x, mswpr->btn_yes.y,
-                             mswpr->btn_yes.width, mswpr->btn_yes.height,
-                             BLACK);
-         DrawText ("Yes", mswpr->btn_yes.x + 30, mswpr->btn_yes.y + 5, 20,
-                   BLACK);
-
-         DrawRectangleRec (mswpr->btn_no, RED);
-         DrawRectangleLines (mswpr->btn_no.x, mswpr->btn_no.y,
-                             mswpr->btn_no.width, mswpr->btn_no.height, BLACK);
-         DrawText ("No", mswpr->btn_no.x + 35, mswpr->btn_no.y + 5, 20, BLACK);
+         mswpr_draw_reset_modal (mswpr);
       }
 
    EndDrawing ();
+}
+
+void
+mswpr_draw_end_screen (mswpr_t *mswpr)
+{
+   int grid_y = mswpr->ui_height;
+   int grid_h = mswpr->screen_height - mswpr->ui_height;
+
+   DrawRectangle (0, grid_y, mswpr->screen_width, grid_h,
+                  Fade (LIGHTGRAY, 0.8f));
+
+   const char *text = mswpr->has_user_won ? "YOU WIN!" : "GAME OVER";
+   Color color      = mswpr->has_user_won ? DARKGREEN : RED;
+
+   int font_size = 40;
+   int text_w    = MeasureText (text, font_size);
+   int text_x    = (mswpr->screen_width / 2) - (text_w / 2);
+   int text_y    = grid_y + (grid_h / 2) - (font_size / 2);
+
+   DrawText (text, text_x + 2, text_y + 2, font_size, Fade (BLACK, 0.3f));
+   DrawText (text, text_x, text_y, font_size, color);
+}
+
+void
+mswpr_draw_reset_modal (mswpr_t *mswpr)
+{
+   DrawRectangle (0, 0, mswpr->screen_width, mswpr->screen_height,
+                  Fade (BLACK, 0.5f));
+
+   DrawRectangleRec (mswpr->modal_rect, RAYWHITE);
+   DrawRectangleLinesEx (mswpr->modal_rect, 2, BLACK);
+
+   const char *msg = "Start a new game?";
+   int msg_w       = MeasureText (msg, 20);
+   DrawText (msg,
+             mswpr->modal_rect.x + (mswpr->modal_rect.width / 2) - (msg_w / 2),
+             mswpr->modal_rect.y + 30, 20, BLACK);
+
+   DrawRectangleRec (mswpr->btn_yes, GREEN);
+   DrawRectangleLinesEx (mswpr->btn_yes, 1, BLACK);
+   int yes_w = MeasureText ("YES", 20);
+   DrawText ("YES",
+             mswpr->btn_yes.x + (mswpr->btn_yes.width / 2) - (yes_w / 2),
+             mswpr->btn_yes.y + 5, 20, WHITE);
+
+   DrawRectangleRec (mswpr->btn_no, RED);
+   DrawRectangleLinesEx (mswpr->btn_no, 1, BLACK);
+   int no_w = MeasureText ("NO", 20);
+   DrawText ("NO", mswpr->btn_no.x + (mswpr->btn_no.width / 2) - (no_w / 2),
+             mswpr->btn_no.y + 5, 20, WHITE);
 }
 
 void
