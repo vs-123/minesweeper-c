@@ -19,5 +19,7 @@
 ## LICENSE
 
   This project is licensed under **GNU Affero General Public License Version 3.0 or Later**.
+  
   **NO WARRANTY PROVIDED!**
+  
   See **LICENSE** file for full terms or visit https://www.gnu.org/licenses/agpl-3.0.html
