@@ -8,9 +8,6 @@
 
 #define NOT_IMPL assert (0 && "NOT IMPLEMENTED");
 
-#define SCREEN_WIDTH 16 * 30
-#define SCREEN_HEIGHT 16 * 30 + 50
-
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -32,6 +29,9 @@ typedef struct
    u8 cell_size;
    u8 mines_count;
    u8 ui_height;
+
+   int screen_width;
+   int screen_height;
 
    cell_t *cell_grid;
 
@@ -75,13 +75,11 @@ void mswpr_auto_reveal (mswpr_t *mswpr, int cell_row, int cell_col);
 int
 main (void)
 {
-   InitWindow (SCREEN_WIDTH, SCREEN_HEIGHT, "Minesweeper -- vs-123");
    mswpr_t mswpr = mswpr_init ();
 
    mswpr_run (&mswpr);
 
    mswpr_free (&mswpr);
-   CloseWindow ();
 
    return 0;
 }
@@ -96,6 +94,12 @@ mswpr_init (void)
    mswpr.cell_size    = 30;
    mswpr.mines_count  = 40;
    mswpr.ui_height    = 50;
+
+   mswpr.screen_width  = mswpr.grid_columns * mswpr.cell_size;
+   mswpr.screen_height = (mswpr.grid_rows * mswpr.cell_size) + mswpr.ui_height;
+
+   InitWindow (mswpr.screen_width, mswpr.screen_height,
+               "Minesweeper -- vs-123");
 
    mswpr.cell_grid
        = malloc (sizeof (cell_t) * mswpr.grid_rows * mswpr.grid_columns);
@@ -145,13 +149,12 @@ mswpr_init (void)
    mswpr.colour_palette[5] = ORANGE;
    mswpr.colour_palette[6] = (Color){ 64, 224, 208, 255 };
    mswpr.colour_palette[7] = BLACK;
-   mswpr.colour_palette[8] = GRAY; // 8
+   mswpr.colour_palette[8] = GRAY;
 
    Image window_icon = LoadImage ("assets/mine.png");
    SetWindowIcon (window_icon);
    UnloadImage (window_icon);
 
-   /* reset_game(); */
    mswpr_reset (&mswpr);
 
    return mswpr;
@@ -160,15 +163,22 @@ mswpr_init (void)
 void
 mswpr_free (mswpr_t *mswpr)
 {
+   if (mswpr->cell_grid != NULL)
+      {
+         free (mswpr->cell_grid);
+         mswpr->cell_grid = NULL;
+      }
 
-   if (mswpr->mine_texture.width > 0)
+   if (mswpr->mine_texture.id > 0)
       {
          UnloadTexture (mswpr->mine_texture);
       }
-   if (mswpr->flag_texture.width > 0)
+   if (mswpr->flag_texture.id > 0)
       {
          UnloadTexture (mswpr->flag_texture);
       }
+
+   CloseWindow ();
 }
 
 void
@@ -375,9 +385,6 @@ mswpr_update (mswpr_t *mswpr)
 void
 mswpr_draw (mswpr_t *mswpr)
 {
-   int screen_width  = mswpr->grid_columns * mswpr->cell_size;
-   int screen_height = mswpr->grid_rows * mswpr->cell_size + mswpr->ui_height;
-
    BeginDrawing ();
    ClearBackground (RAYWHITE);
 
@@ -491,9 +498,9 @@ mswpr_draw (mswpr_t *mswpr)
    if (mswpr->has_game_ended || mswpr->has_user_won)
       {
          int grid_area_y      = mswpr->ui_height;
-         int grid_area_height = screen_height - mswpr->ui_height;
+         int grid_area_height = mswpr->screen_height - mswpr->ui_height;
          Color overlay_color  = Fade (LIGHTGRAY, 0.8f);
-         DrawRectangle (0, grid_area_y, screen_width, grid_area_height,
+         DrawRectangle (0, grid_area_y, mswpr->screen_width, grid_area_height,
                         overlay_color);
          const char *end_text = mswpr->has_game_ended ? "Game Over!"
                                 : mswpr->has_user_won
@@ -501,7 +508,7 @@ mswpr_draw (mswpr_t *mswpr)
                                     : "Damn, how did you get this?";
          int font_size        = 40;
          int text_width       = MeasureText (end_text, font_size);
-         int text_x           = screen_width / 2 - text_width / 2;
+         int text_x           = mswpr->screen_width / 2 - text_width / 2;
          int text_y = grid_area_y + grid_area_height / 2 - font_size / 2;
          DrawText (end_text, text_x, text_y, font_size,
                    mswpr->has_game_ended ? RED : DARKGREEN);
@@ -509,7 +516,8 @@ mswpr_draw (mswpr_t *mswpr)
 
    if (mswpr->is_reset_confirmed)
       {
-         DrawRectangle (0, 0, screen_width, screen_height, Fade (BLACK, 0.5f));
+         DrawRectangle (0, 0, mswpr->screen_width, mswpr->screen_height,
+                        Fade (BLACK, 0.5f));
          DrawRectangleRec (mswpr->modal_rect, LIGHTGRAY);
          DrawRectangleLines (mswpr->modal_rect.x, mswpr->modal_rect.y,
                              mswpr->modal_rect.width, mswpr->modal_rect.height,
@@ -641,6 +649,7 @@ mswpr_auto_reveal (mswpr_t *mswpr, int row, int col)
       {
          return;
       }
+
    int num_flagged = 0;
    for (int i = -1; i <= 1; i++)
       {
@@ -665,7 +674,7 @@ mswpr_auto_reveal (mswpr_t *mswpr, int row, int col)
             {
                for (int j = -1; j <= 1; j++)
                   {
-                     mswpr_reveal_cell(mswpr, row + i, col + j);
+                     mswpr_reveal_cell (mswpr, row + i, col + j);
                   }
             }
       }
