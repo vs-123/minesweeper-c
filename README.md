@@ -19,7 +19,7 @@
 ## CONTROLS
 
 - LMB / F       -- Clear a Cell
-- RMB / <SPACE>	-- Flag a cell
+- RMB / [SPACE]	-- Flag a cell
 - MMB / E       -- Auto reveal
 
 ## BUILD INSTRUCTIONS
