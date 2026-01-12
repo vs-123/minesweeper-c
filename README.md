@@ -21,6 +21,21 @@
 - LMB / F       -- Clear a Cell
 - RMB / <SPACE>	-- Flag a cell
 - MMB / E       -- Auto reveal
+
+## BUILD INSTRUCTIONS
+
+- Clone the repository recursively and `cd` into it:
+```bash
+% git clone --recursive https://github.com/vs-123/minesweeper-c.git
+% cd minesweeper-c/
+```
+
+- Use CMake to build:
+```bash
+% cmake -B build/ -S .
+% cmake --build build/
+% ./build/mswpr # run minesweeper
+```
    
 ## LICENSE
 

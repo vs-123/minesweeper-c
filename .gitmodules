@@ -1,0 +1,3 @@
+[submodule "vendors/ystar"]
+	path = vendors/ystar
+	url = https://github.com/vs-123/ystar.git
