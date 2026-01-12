@@ -15,7 +15,6 @@
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 typedef uint8_t u8;
-/*typedef uint64_t u64;*/
 
 typedef struct
 {
@@ -201,9 +200,10 @@ mswpr_reset (mswpr_t *mswpr)
    mswpr->start_time     = GetTime ();
    mswpr->end_time       = 0.0;
    mswpr->pause_duration = 0.0;
+   
    mswpr->is_first_click = true;
-   mswpr->seed           = time (NULL) ^ (u64)mswpr_reset;
-   mswpr->mines_count    = ystar_between (&mswpr->seed, 20, 40);
+   mswpr->seed ^= time(NULL);
+   mswpr->mines_count    = ystar_between (&mswpr->seed, 10, 30);
 
    /* don't reallocate, just reset the grid */
    int total_cells = mswpr->grid_rows * mswpr->grid_columns;
@@ -326,7 +326,8 @@ mswpr_update (mswpr_t *mswpr)
                                                        * mswpr->grid_columns
                                                    + cell_col];
 
-                           if (IsMouseButtonPressed (MOUSE_LEFT_BUTTON) || IsKeyPressed(KEY_F))
+                           if (IsMouseButtonPressed (MOUSE_LEFT_BUTTON)
+                               || IsKeyPressed (KEY_F))
                               {
                                  if (mswpr->is_first_click)
                                     {
@@ -344,13 +345,15 @@ mswpr_update (mswpr_t *mswpr)
                                     mswpr_reveal_cell (mswpr, cell_row,
                                                        cell_col);
                               }
-                           else if (IsMouseButtonPressed (MOUSE_RIGHT_BUTTON) || IsKeyPressed(KEY_SPACE))
+                           else if (IsMouseButtonPressed (MOUSE_RIGHT_BUTTON)
+                                    || IsKeyPressed (KEY_SPACE))
                               {
                                  if (!current_cell->is_revealed)
                                     current_cell->has_flag
                                         = !current_cell->has_flag;
                               }
-                           else if (IsMouseButtonPressed (MOUSE_MIDDLE_BUTTON) || IsKeyPressed(KEY_E))
+                           else if (IsMouseButtonPressed (MOUSE_MIDDLE_BUTTON)
+                                    || IsKeyPressed (KEY_E))
                               {
                                  if (current_cell->is_revealed
                                      && current_cell->adjacent_mines_count > 0)
