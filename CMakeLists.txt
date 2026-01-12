@@ -12,6 +12,7 @@ add_subdirectory("vendors/raylib")
 file(GLOB SOURCES "src/*.c")
 
 add_executable(mswpr ${SOURCES})
+include_directories("vendors/ystar/dist")
 
 target_compile_options(mswpr PRIVATE -Wall -Wextra -Wpedantic)
 target_include_directories(mswpr PRIVATE ${CMAKE_SOURCE_DIR}/include/)

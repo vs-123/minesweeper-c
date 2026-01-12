@@ -15,6 +15,12 @@
 - [x] Timer
 - [x] Icons
 - [x] Coloured Numbers
+
+## CONTROLS
+
+- LMB / F       -- Clear a Cell
+- RMB / <SPACE>	-- Flag a cell
+- MMB / E       -- Auto reveal
    
 ## LICENSE
 

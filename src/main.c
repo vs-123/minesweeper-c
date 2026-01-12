@@ -3,8 +3,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "raylib.h"
+#define YSTAR_IMPLEMENTATION
+#include "ystar.h"
 
 #define NOT_IMPL assert (0 && "NOT IMPLEMENTED");
 
@@ -12,6 +15,7 @@
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 typedef uint8_t u8;
+/*typedef uint64_t u64;*/
 
 typedef struct
 {
@@ -29,6 +33,7 @@ typedef struct
    u8 cell_size;
    u8 mines_count;
    u8 ui_height;
+   u64 seed;
 
    int screen_width;
    int screen_height;
@@ -95,11 +100,12 @@ mswpr_init (void)
 {
    mswpr_t mswpr;
 
-   mswpr.grid_columns = 16;
-   mswpr.grid_rows    = 16;
-   mswpr.cell_size    = 30;
-   mswpr.mines_count  = 40;
+   mswpr.grid_columns = 15;
+   mswpr.grid_rows    = 15;
+   mswpr.cell_size    = 35;
+   mswpr.mines_count  = 1;
    mswpr.ui_height    = 50;
+   mswpr.seed         = 1;
 
    mswpr.screen_width  = mswpr.grid_columns * mswpr.cell_size;
    mswpr.screen_height = (mswpr.grid_rows * mswpr.cell_size) + mswpr.ui_height;
@@ -190,6 +196,15 @@ mswpr_free (mswpr_t *mswpr)
 void
 mswpr_reset (mswpr_t *mswpr)
 {
+   mswpr->has_game_ended = false;
+   mswpr->has_user_won   = false;
+   mswpr->start_time     = GetTime ();
+   mswpr->end_time       = 0.0;
+   mswpr->pause_duration = 0.0;
+   mswpr->is_first_click = true;
+   mswpr->seed           = time (NULL) ^ (u64)mswpr_reset;
+   mswpr->mines_count    = ystar_between (&mswpr->seed, 20, 40);
+
    /* don't reallocate, just reset the grid */
    int total_cells = mswpr->grid_rows * mswpr->grid_columns;
    for (int i = 0; i < total_cells; i++)
@@ -202,13 +217,6 @@ mswpr_reset (mswpr_t *mswpr)
 
    mswpr_place_mines (mswpr);
    mswpr_calc_adj_mines (mswpr);
-
-   mswpr->has_game_ended = false;
-   mswpr->has_user_won   = false;
-   mswpr->start_time     = GetTime ();
-   mswpr->end_time       = 0.0;
-   mswpr->pause_duration = 0.0;
-   mswpr->is_first_click = true;
 }
 
 void
@@ -218,8 +226,8 @@ mswpr_place_mines (mswpr_t *mswpr)
 
    while (mines_placed < mswpr->mines_count)
       {
-         int row = rand () % mswpr->grid_rows;
-         int col = rand () % mswpr->grid_columns;
+         int row = ystar (&mswpr->seed) % mswpr->grid_rows;
+         int col = ystar (&mswpr->seed) % mswpr->grid_columns;
 
          cell_t *current_cell
              = &mswpr->cell_grid[row * mswpr->grid_columns + col];
@@ -318,7 +326,7 @@ mswpr_update (mswpr_t *mswpr)
                                                        * mswpr->grid_columns
                                                    + cell_col];
 
-                           if (IsMouseButtonPressed (MOUSE_LEFT_BUTTON))
+                           if (IsMouseButtonPressed (MOUSE_LEFT_BUTTON) || IsKeyPressed(KEY_F))
                               {
                                  if (mswpr->is_first_click)
                                     {
@@ -336,13 +344,13 @@ mswpr_update (mswpr_t *mswpr)
                                     mswpr_reveal_cell (mswpr, cell_row,
                                                        cell_col);
                               }
-                           else if (IsMouseButtonPressed (MOUSE_RIGHT_BUTTON))
+                           else if (IsMouseButtonPressed (MOUSE_RIGHT_BUTTON) || IsKeyPressed(KEY_SPACE))
                               {
                                  if (!current_cell->is_revealed)
                                     current_cell->has_flag
                                         = !current_cell->has_flag;
                               }
-                           else if (IsMouseButtonPressed (MOUSE_MIDDLE_BUTTON))
+                           else if (IsMouseButtonPressed (MOUSE_MIDDLE_BUTTON) || IsKeyPressed(KEY_E))
                               {
                                  if (current_cell->is_revealed
                                      && current_cell->adjacent_mines_count > 0)
