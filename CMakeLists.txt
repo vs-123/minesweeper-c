@@ -15,12 +15,19 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
+FetchContent_Declare(
+  ystar
+  GIT_REPOSITORY https://github.com/vs-123/ystar.git
+  GIT_TAG        main
+)
+FetchContent_MakeAvailable(ystar)
+
 file(GLOB SOURCES "src/*.c")
 
 add_executable(mswpr ${SOURCES})
-include_directories("vendors/ystar/dist")
+#include_directories("vendors/ystar/dist")
 
 file(COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR})
 target_compile_options(mswpr PRIVATE -Wall -Wextra -Wpedantic)
 target_include_directories(mswpr PRIVATE ${CMAKE_SOURCE_DIR}/include/)
-target_link_libraries(mswpr PRIVATE raylib)
+target_link_libraries(mswpr PRIVATE raylib ystar)
