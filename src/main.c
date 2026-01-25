@@ -195,15 +195,18 @@ mswpr_free (mswpr_t *mswpr)
 void
 mswpr_reset (mswpr_t *mswpr)
 {
+   const int max_mines = mswpr->grid_rows * mswpr->grid_columns;
+
    mswpr->has_game_ended = false;
    mswpr->has_user_won   = false;
    mswpr->start_time     = GetTime ();
    mswpr->end_time       = 0.0;
    mswpr->pause_duration = 0.0;
-   
+
    mswpr->is_first_click = true;
-   mswpr->seed ^= time(NULL);
-   mswpr->mines_count    = ystar_between (&mswpr->seed, 10, 30);
+   mswpr->seed ^= time (NULL);
+   mswpr->mines_count
+       = ystar_between (&mswpr->seed, 0.05 * max_mines, 0.3 * max_mines);
 
    /* don't reallocate, just reset the grid */
    int total_cells = mswpr->grid_rows * mswpr->grid_columns;
