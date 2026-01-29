@@ -1,3 +1,5 @@
-BasedOnStyle: GNU
+BasedOnStyle: LLVM
 IndentWidth: 3
 AlignConsecutiveAssignments: Consecutive
+ColumnLimit: 80
+LineEnding: LF
