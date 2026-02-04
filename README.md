@@ -26,7 +26,7 @@
 
 - Clone the repository recursively and `cd` into it:
 ```bash
-% git clone --recursive https://github.com/vs-123/minesweeper-c.git
+% git clone https://github.com/vs-123/minesweeper-c.git
 % cd minesweeper-c/
 ```
 
